@@ -204,19 +204,19 @@ contract AmberToken is Token, Owned {
 /// queryable record.
 contract AmbrosusSale {
 	/// Constructor.
-    function AmbrosusSale() {
+	function AmbrosusSale() {
 		tokens = new AmberToken();
-    }
+	}
 
 	// Can only be called by the administrator.
-    modifier only_admin { require (msg.sender == ADMINISTRATOR); _; }
+	modifier only_admin { require (msg.sender == ADMINISTRATOR); _; }
 
 	// The transaction params are valid for buying in.
-    modifier is_valid_buyin { require (tx.gasprice <= MAX_BUYIN_GAS_PRICE && msg.value >= MIN_BUYIN_VALUE); _; }
+	modifier is_valid_buyin { require (tx.gasprice <= MAX_BUYIN_GAS_PRICE && msg.value >= MIN_BUYIN_VALUE); _; }
 	// Requires the hard cap to be respected given the desired amount for `buyin`.
 	modifier is_under_cap_with(uint buyin) { require (buyin + saleRevenue <= MAX_REVENUE); _; }
 	// Requires a valid signature to be given.
-    modifier only_signed(address who, uint8 v, bytes32 r, bytes32 s) { require (ecrecover(sha3(SIGNING_PREFIX, who), v, r, s) == SIGNING_AUTHORITY); _; }
+	modifier only_signed(address who, uint8 v, bytes32 r, bytes32 s) { require (ecrecover(sha3(SIGNING_PREFIX, who), v, r, s) == SIGNING_AUTHORITY); _; }
 
 	/*
 		Sale life cycle:
@@ -228,17 +228,17 @@ contract AmbrosusSale {
 	*/
 
 	// Can only be called by prior to the period (1).
-    modifier only_before_period { require (now < BEGIN_TIME); _; }
+	modifier only_before_period { require (now < BEGIN_TIME); _; }
 	// Only does something if during the period (2).
-    modifier when_during_period { if (now >= BEGIN_TIME && now < END_TIME && !isPaused) _; }
+	modifier when_during_period { if (now >= BEGIN_TIME && now < END_TIME && !isPaused) _; }
 	// Can only be called during the period when not paused (2a).
-    modifier only_during_period { require (now >= BEGIN_TIME && now < END_TIME && !isPaused); _; }
+	modifier only_during_period { require (now >= BEGIN_TIME && now < END_TIME && !isPaused); _; }
 	// Can only be called during the period when paused (2b)
-    modifier only_during_paused_period { require (now >= BEGIN_TIME && now < END_TIME && isPaused); _; }
+	modifier only_during_paused_period { require (now >= BEGIN_TIME && now < END_TIME && isPaused); _; }
 	// Can only be called after the period (3).
-    modifier only_after_sale { require (now >= END_TIME || saleRevenue >= MAX_REVENUE); _; }
+	modifier only_after_sale { require (now >= END_TIME || saleRevenue >= MAX_REVENUE); _; }
 	// Can only be called during the period when not paused (2a).
-    modifier only_before_sale_end { require (now < END_TIME && saleRevenue < MAX_REVENUE); _; }
+	modifier only_before_sale_end { require (now < END_TIME && saleRevenue < MAX_REVENUE); _; }
 
 	/*
 		Allocation life cycle:
@@ -259,15 +259,15 @@ contract AmbrosusSale {
 	/// Note a pre-ICO sale.
 	event Prepurchased(address indexed recipient, uint etherPaid, uint amberSold);
 	/// Some contribution `amount` received from `recipient`.
-    event Purchased(address indexed recipient, uint amount);
+	event Purchased(address indexed recipient, uint amount);
 	/// Some contribution `amount` received from `recipient`.
-    event SpecialPurchased(address indexed recipient, uint etherPaid, uint amberSold);
+	event SpecialPurchased(address indexed recipient, uint etherPaid, uint amberSold);
 	/// Period paused abnormally.
-    event Paused();
+	event Paused();
 	/// Period restarted after abnormal halt.
-    event Unpaused();
+	event Unpaused();
 	/// Some contribution `amount` received from `recipient`.
-    event Allocated(address indexed recipient, uint amount, bool liquid);
+	event Allocated(address indexed recipient, uint amount, bool liquid);
 
 	/// Note a prepurchase that already happened.
 	///
@@ -284,25 +284,25 @@ contract AmbrosusSale {
 		Prepurchased(_who, _etherPaid, _amberSold);
 	}
 
-    /// Make a purchase from a privileged account. No KYC is required and a
+	/// Make a purchase from a privileged account. No KYC is required and a
 	/// preferential buyin rate may be given.
 	///
 	/// Preconditions: !paused, sale_ongoing
 	/// Postconditions: paused
 	/// Writes {Tokens, Sale}
-    function specialPurchase()
+	function specialPurchase()
 		only_before_period
 		is_under_cap_with(msg.value)
 		public
-    {
-        var bought = buyinReturn(msg.sender) * msg.value;
-        require (bought > 0);   // be kind and don't punish the idiots.
+	{
+		var bought = buyinReturn(msg.sender) * msg.value;
+		require (bought > 0);   // be kind and don't punish the idiots.
 
-        require (TREASURY.call.value(msg.value)());
-        tokens.mint(msg.sender, bought);
-        saleRevenue += msg.value;
+		require (TREASURY.call.value(msg.value)());
+		tokens.mint(msg.sender, bought);
+		saleRevenue += msg.value;
 		totalSold += bought;
-        SpecialPurchased(msg.sender, msg.value, bought);
+		SpecialPurchased(msg.sender, msg.value, bought);
    }
 
 	/// Let sender make a purchase to their account.
@@ -310,103 +310,103 @@ contract AmbrosusSale {
 	/// Preconditions: !paused, sale_ongoing
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
-    function purchase(uint8 v, bytes32 r, bytes32 s)
+	function purchase(uint8 v, bytes32 r, bytes32 s)
 		only_signed(msg.sender, v, r, s)
 		payable
 		public
 	{
-        processPurchase(msg.sender);
-    }
+		processPurchase(msg.sender);
+	}
 
 	/// Let sender make a standard purchase; AMR goes into another account.
 	///
 	/// Preconditions: !paused, sale_ongoing
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
-    function purchaseTo(address _recipient, uint8 v, bytes32 r, bytes32 s)
+	function purchaseTo(address _recipient, uint8 v, bytes32 r, bytes32 s)
 		only_signed(msg.sender, v, r, s)
 		payable
 		public
 	{
 		processPurchase(_recipient);
-    }
+	}
 
 	/// Receive a contribution from `_recipient`.
 	///
 	/// Preconditions: !paused, sale_ongoing
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
-    function processPurchase(address _recipient)
+	function processPurchase(address _recipient)
 		only_during_period
 		is_valid_buyin
 		is_under_cap_with(msg.value)
 		private
 	{
-        require (TREASURY.call.value(msg.value)());
-        tokens.mint(_recipient, msg.value * STANDARD_BUYIN);
-        saleRevenue += msg.value;
+		require (TREASURY.call.value(msg.value)());
+		tokens.mint(_recipient, msg.value * STANDARD_BUYIN);
+		saleRevenue += msg.value;
 		totalSold += msg.value * STANDARD_BUYIN;
-        Purchased(_recipient, msg.value);
-    }
+		Purchased(_recipient, msg.value);
+	}
 
-    /// Determine purchase price for a given address.
-    /// This function is full of bare constants, mainly because that's how they're defined
-    /// in the spec. Naming them would give little more clarity and just cause additional indirection.
-    function buyinReturn(address _who)
-        constant
-        public
-        returns (uint)
-    {
-        // Chinese exchanges.
-        if (
-            _who == CHINESE_EXCHANGE_1 || _who == CHINESE_EXCHANGE_2 ||
-            _who == CHINESE_EXCHANGE_3 || _who == CHINESE_EXCHANGE_4
-        )
-            return CHINESE_EXCHANGE_BUYIN;
+	/// Determine purchase price for a given address.
+	/// This function is full of bare constants, mainly because that's how they're defined
+	/// in the spec. Naming them would give little more clarity and just cause additional indirection.
+	function buyinReturn(address _who)
+		constant
+		public
+		returns (uint)
+	{
+		// Chinese exchanges.
+		if (
+			_who == CHINESE_EXCHANGE_1 || _who == CHINESE_EXCHANGE_2 ||
+			_who == CHINESE_EXCHANGE_3 || _who == CHINESE_EXCHANGE_4
+		)
+			return CHINESE_EXCHANGE_BUYIN;
 
-        // BTCSuisse tier 1
-        if (_who == BTC_SUISSE_TIER_1)
-            return STANDARD_BUYIN;
-        // BTCSuisse tier 2
-        if (_who == BTC_SUISSE_TIER_2)
-            return TIER_2_BUYIN;
-        // BTCSuisse tier 3
-        if (_who == BTC_SUISSE_TIER_3)
-            return TIER_3_BUYIN;
-        // BTCSuisse tier 4
-        if (_who == BTC_SUISSE_TIER_4)
-            return TIER_4_BUYIN;
+		// BTCSuisse tier 1
+		if (_who == BTC_SUISSE_TIER_1)
+			return STANDARD_BUYIN;
+		// BTCSuisse tier 2
+		if (_who == BTC_SUISSE_TIER_2)
+			return TIER_2_BUYIN;
+		// BTCSuisse tier 3
+		if (_who == BTC_SUISSE_TIER_3)
+			return TIER_3_BUYIN;
+		// BTCSuisse tier 4
+		if (_who == BTC_SUISSE_TIER_4)
+			return TIER_4_BUYIN;
 
-        return 0;
-    }
+		return 0;
+	}
 
 	/// Halt the contribution period. Any attempt at contributing will fail.
 	///
 	/// Preconditions: !paused, sale_ongoing
 	/// Postconditions: paused
 	/// Writes {Paused}
-    function pause()
+	function pause()
 		only_admin
 		only_during_period
 		public
 	{
-        isPaused = true;
-        Paused();
-    }
+		isPaused = true;
+		Paused();
+	}
 
 	/// Unhalt the contribution period.
 	///
 	/// Preconditions: paused
 	/// Postconditions: !paused
 	/// Writes {Paused}
-    function unpause()
+	function unpause()
 		only_admin
 		only_during_paused_period
 		public
 	{
-        isPaused = false;
-        Unpaused();
-    }
+		isPaused = false;
+		Unpaused();
+	}
 
 	/// Called once by anybody after the sale ends.
 	/// Initialises the specific values (i.e. absolute token quantities) of the
@@ -432,13 +432,13 @@ contract AmbrosusSale {
 	/// Postconditions: ?allocations_complete
 	/// Writes {Allocations, Tokens}
 	function allocateLiquid(address _who, uint _value)
-	 	only_admin
+		only_admin
 		when_allocatable_liquid(_value)
 		public
 	{
 		tokens.mint(_who, _value);
 		liquidAllocatable -= _value;
-        Allocated(_who, _value, true);
+		Allocated(_who, _value, true);
 	}
 
 	/// Preallocate a locked-up portion of tokens.
@@ -448,13 +448,13 @@ contract AmbrosusSale {
 	/// Postconditions: ?allocations_complete
 	/// Writes {Allocations, Tokens}
 	function allocateLocked(address _who, uint _value)
-	 	only_admin
+		only_admin
 		when_allocatable_locked(_value)
 		public
 	{
 		tokens.mintLocked(_who, _value);
 		lockedAllocatable -= _value;
-        Allocated(_who, _value, false);
+		Allocated(_who, _value, false);
 	}
 
 	/// End of the sale and token allocation; retire this contract.
@@ -464,20 +464,20 @@ contract AmbrosusSale {
 	/// Preconditions: allocations_complete
 	/// Postconditions: liquid_tokens_transferable, this_is_dead
 	/// Writes {Tokens}
-    function finalise()
+	function finalise()
 		when_allocations_complete
 		public
 	{
 		tokens.finalise();
-        suicide(TREASURY);
-    }
+		suicide(TREASURY);
+	}
 
 	//////
 	// STATE
 	//////
 
 	// How much is enough?
-    uint public constant MIN_BUYIN_VALUE = 1;
+	uint public constant MIN_BUYIN_VALUE = 1;
 	// Max gas price for buyins.
 	uint public constant MAX_BUYIN_GAS_PRICE = 25000000000;
 	// The exposed hard cap.
@@ -495,15 +495,15 @@ contract AmbrosusSale {
 	uint constant public LIQUID_ALLOCATION_PPM = 263000;
 
 	// Who can halt/unhalt/kill?
-    address public constant ADMINISTRATOR = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
+	address public constant ADMINISTRATOR = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
 	// Who gets the stash?
-    address public constant TREASURY = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
+	address public constant TREASURY = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
 	// When does the contribution period begin?
-    uint public constant BEGIN_TIME = now + 5 minutes;//1505304000
+	uint public constant BEGIN_TIME = now + 5 minutes;//1505304000
 	// How long does the sale last for?
 	uint public constant DURATION = 10 minutes;//30 days;
 	// When does the period end?
-    uint public constant END_TIME = BEGIN_TIME + DURATION;
+	uint public constant END_TIME = BEGIN_TIME + DURATION;
 
 	// The privileged buyin accounts.
 	address public constant BTC_SUISSE_TIER_1 = 0x53B3D4f98fcb6f0920096fe1cCCa0E4327Da7a1D;
@@ -546,9 +546,9 @@ contract AmbrosusSale {
 	// saleRevenue <= MAX_REVENUE
 
 	// Total amount raised in both presale and sale, in Wei.
-    uint public saleRevenue = 0;
+	uint public saleRevenue = 0;
 	// Total amount minted in both presale and sale, in AMR * 10^-18.
-    uint public totalSold = 0;
+	uint public totalSold = 0;
 
 	//////
 	// State Subset: Tokens
@@ -560,5 +560,5 @@ contract AmbrosusSale {
 	// State Subset: Pause
 
 	// Are contributions abnormally paused?
-    bool public isPaused = false;
+	bool public isPaused = false;
 }
