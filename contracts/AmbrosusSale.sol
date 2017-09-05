@@ -220,7 +220,7 @@ contract AmbrosusSale {
 	modifier is_valid_buyin { require (tx.gasprice <= MAX_BUYIN_GAS_PRICE && msg.value >= MIN_BUYIN_VALUE); _; }
 	// Requires the hard cap to be respected given the desired amount for `buyin`.
 	modifier is_under_cap_with(uint buyin) { require (buyin + saleRevenue <= MAX_REVENUE); _; }
-	/// Requires sender to be certified.
+	// Requires sender to be certified.
 	modifier only_certified(address who) { require (certifier.certified(who)); _; }
 
 	/*
