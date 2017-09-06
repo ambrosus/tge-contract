@@ -491,10 +491,6 @@ contract AmbrosusSale {
 	uint public constant MAX_BUYIN_GAS_PRICE = 25000000000;
 	// The exposed hard cap.
 	uint public constant MAX_REVENUE = 315000 ether;
-	// The signer who signs the message.
-	address public constant SIGNING_AUTHORITY = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
-	// The message to combine with the address and sign.
-	string constant public SIGNING_PREFIX = "\x19Ethereum Signed Message:\n20";
 
 	// The total share of tokens, expressed in PPM, allocated to pre-ICO and ICO.
 	uint constant public SALES_ALLOCATION_PPM = 400000;

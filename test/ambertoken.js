@@ -6,8 +6,8 @@ contract('ambertoken', function(accounts) {
 		const OWNER = accounts[0];
 		const VESTED = accounts[1];
 		const increaseTime = addSeconds => {
-			web3.currentProvider.send({jsonrpc: "2.0", method: "evm_increaseTime", params: [addSeconds], id: 0})
-			web3.currentProvider.send({jsonrpc: "2.0", method: "evm_mine", params: [], id: 1})
+			web3.currentProvider.send({jsonrpc: "2.0", method: "evm_increaseTime", params: [addSeconds], id: 0});
+			web3.currentProvider.send({jsonrpc: "2.0", method: "evm_mine", params: [], id: 1});
 		}
 		var amber;
 		var phaseDuration;
