@@ -211,9 +211,9 @@ contract AmberToken is Token, Owned {
 /// queryable record.
 contract AmbrosusSale {
 	/// Constructor.
-	function AmbrosusSale(address certifierAddress) {
+	function AmbrosusSale(address _certifierAddress) {
 		tokens = new AmberToken();
-		certifier = Certifier(certifierAddress);
+		certifier = Certifier(_certifierAddress);
 	}
 
 	// Can only be called by the administrator.
