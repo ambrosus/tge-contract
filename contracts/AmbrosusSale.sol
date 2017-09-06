@@ -142,8 +142,11 @@ contract AmberToken is Token, Owned {
 		when_liquid
 		returns (bool)
 	{
+		// Mitigate the race condition described here:
+		// https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+		require (_value == 0 || accounts[msg.sender].allowanceOf[_spender] == 0);
 		Approval(msg.sender, _spender, _value);
-		accounts[msg.sender].allowanceOf[_spender] += _value;
+		accounts[msg.sender].allowanceOf[_spender] = _value;
 
 		return true;
 	}
@@ -304,7 +307,7 @@ contract AmbrosusSale {
 		var bought = buyinReturn(msg.sender) * msg.value;
 		require (bought > 0);   // be kind and don't punish the idiots.
 
-		require (TREASURY.call.value(msg.value)());
+		TREASURY.transfer(msg.value);
 		tokens.mint(msg.sender, bought);
 		saleRevenue += msg.value;
 		totalSold += bought;
@@ -348,7 +351,7 @@ contract AmbrosusSale {
 		is_under_cap_with(msg.value)
 		private
 	{
-		require (TREASURY.call.value(msg.value)());
+		TREASURY.transfer(msg.value);
 		tokens.mint(_recipient, msg.value * STANDARD_BUYIN);
 		saleRevenue += msg.value;
 		totalSold += msg.value * STANDARD_BUYIN;
