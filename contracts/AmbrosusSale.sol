@@ -307,8 +307,8 @@ contract AmbrosusSale {
 		var bought = buyinReturn(msg.sender) * msg.value;
 		require (bought > 0);   // be kind and don't punish the idiots.
 
-		TREASURY.transfer(msg.value);
 		tokens.mint(msg.sender, bought);
+		TREASURY.transfer(msg.value);
 		saleRevenue += msg.value;
 		totalSold += bought;
 		SpecialPurchased(msg.sender, msg.value, bought);
@@ -351,8 +351,8 @@ contract AmbrosusSale {
 		is_under_cap_with(msg.value)
 		private
 	{
-		TREASURY.transfer(msg.value);
 		tokens.mint(_recipient, msg.value * STANDARD_BUYIN);
+		TREASURY.transfer(msg.value);
 		saleRevenue += msg.value;
 		totalSold += msg.value * STANDARD_BUYIN;
 		Purchased(_recipient, msg.value);
