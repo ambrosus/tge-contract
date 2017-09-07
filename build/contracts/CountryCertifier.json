@@ -1,5 +1,5 @@
 {
-  "contract_name": "Certifier",
+  "contract_name": "CountryCertifier",
   "abi": [
     {
       "constant": true,
@@ -18,6 +18,24 @@
         {
           "name": "",
           "type": "address"
+        }
+      ],
+      "payable": false,
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_who",
+          "type": "address"
+        }
+      ],
+      "name": "getCountryCode",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bytes2"
         }
       ],
       "payable": false,
@@ -92,6 +110,16 @@
           "indexed": true,
           "name": "who",
           "type": "address"
+        },
+        {
+          "indexed": true,
+          "name": "by",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "name": "countryCode",
+          "type": "bytes2"
         }
       ],
       "name": "Confirmed",
@@ -104,6 +132,11 @@
           "indexed": true,
           "name": "who",
           "type": "address"
+        },
+        {
+          "indexed": true,
+          "name": "by",
+          "type": "address"
         }
       ],
       "name": "Revoked",
@@ -113,5 +146,5 @@
   "unlinked_binary": "0x",
   "networks": {},
   "schema_version": "0.0.5",
-  "updated_at": 1504801035849
+  "updated_at": 1504801035848
 }

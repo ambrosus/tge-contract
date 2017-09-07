@@ -33,8 +33,9 @@ contract Owned {
 }
 
 /// Stripped down certifier interface.
-contract Certifier {
+contract CountryCertifier {
 	function certified(address _who) constant returns (bool);
+	function getCountryCode(address _who) constant returns (bytes2);
 }
 
 // BasicCoin, ECR20 tokens that all belong to the owner for sending around
@@ -213,7 +214,7 @@ contract AmbrosusSale {
 	/// Constructor.
 	function AmbrosusSale(address _certifierAddress) {
 		tokens = new AmberToken();
-		certifier = Certifier(_certifierAddress);
+		certifier = CountryCertifier(_certifierAddress);
 	}
 
 	// Can only be called by the administrator.
@@ -223,8 +224,13 @@ contract AmbrosusSale {
 	modifier is_valid_buyin { require (tx.gasprice <= MAX_BUYIN_GAS_PRICE && msg.value >= MIN_BUYIN_VALUE); _; }
 	// Requires the hard cap to be respected given the desired amount for `buyin`.
 	modifier is_under_cap_with(uint buyin) { require (buyin + saleRevenue <= MAX_REVENUE); _; }
-	// Requires sender to be certified.
-	modifier only_certified(address who) { require (certifier.certified(who)); _; }
+	// Requires sender to be certified and not in US.
+	modifier only_certified_non_us(address who) {
+		require (certifier.certified(who));
+		var cc = certifier.getCountryCode(who);
+		require (cc != bytes2("us"));
+		_;
+	}
 
 	/*
 		Sale life cycle:
@@ -320,7 +326,7 @@ contract AmbrosusSale {
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
 	function purchase()
-		only_certified(msg.sender)
+		only_certified_non_us(msg.sender)
 		payable
 		public
 	{
@@ -333,7 +339,7 @@ contract AmbrosusSale {
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
 	function purchaseTo(address _recipient)
-		only_certified(msg.sender)
+		only_certified_non_us(msg.sender)
 		payable
 		public
 	{
@@ -518,7 +524,6 @@ contract AmbrosusSale {
 	address public constant CHINESE_EXCHANGE_1 = 0x36f548fAB37Fcd39cA8725B8fA214fcd784FE0A3;
 	address public constant CHINESE_EXCHANGE_2 = 0x877Da872D223AB3D073Ab6f9B4bb27540E387C5F;
 	address public constant CHINESE_EXCHANGE_3 = 0xCcC088ec38A4dbc15Ba269A176883F6ba302eD8d;
-	// TODO: ICOCOIN?
 	address public constant CHINESE_EXCHANGE_4 = 0xCcC088ec38A4dbc15Ba269A176883F6ba302eD8d;
 
 	// Tokens per eth for the various buy-in rates.
@@ -529,7 +534,7 @@ contract AmbrosusSale {
 	uint public constant CHINESE_EXCHANGE_BUYIN = 1087;
 
 	/// The certifier resource.
-	Certifier public certifier;
+	CountryCertifier public certifier;
 
 	//////
 	// State Subset: Allocations
