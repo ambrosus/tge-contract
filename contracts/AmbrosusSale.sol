@@ -212,9 +212,8 @@ contract AmberToken is Token, Owned {
 /// queryable record.
 contract AmbrosusSale {
 	/// Constructor.
-	function AmbrosusSale(address _certifierAddress) {
+	function AmbrosusSale() {
 		tokens = new AmberToken();
-		certifier = CountryCertifier(_certifierAddress);
 	}
 
 	// Can only be called by the administrator.
@@ -226,8 +225,8 @@ contract AmbrosusSale {
 	modifier is_under_cap_with(uint buyin) { require (buyin + saleRevenue <= MAX_REVENUE); _; }
 	// Requires sender to be certified and not in US.
 	modifier only_certified_non_us(address who) {
-		require (certifier.certified(who));
-		var cc = certifier.getCountryCode(who);
+		require (CERTIFIER.certified(who));
+		var cc = CERTIFIER.getCountryCode(who);
 		require (cc != bytes2("us"));
 		_;
 	}
@@ -505,6 +504,8 @@ contract AmbrosusSale {
 	// The total share of tokens, expressed in PPM, the admin may later allocate, as liquid tokens.
 	uint constant public LIQUID_ALLOCATION_PPM = 263000;
 
+	/// The certifier resource. TODO: set address
+	CountryCertifier public constant CERTIFIER = CountryCertifier(0);
 	// Who can halt/unhalt/kill?
 	address public constant ADMINISTRATOR = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
 	// Who gets the stash?
@@ -524,7 +525,8 @@ contract AmbrosusSale {
 	address public constant CHINESE_EXCHANGE_1 = 0x36f548fAB37Fcd39cA8725B8fA214fcd784FE0A3;
 	address public constant CHINESE_EXCHANGE_2 = 0x877Da872D223AB3D073Ab6f9B4bb27540E387C5F;
 	address public constant CHINESE_EXCHANGE_3 = 0xCcC088ec38A4dbc15Ba269A176883F6ba302eD8d;
-	address public constant CHINESE_EXCHANGE_4 = 0xCcC088ec38A4dbc15Ba269A176883F6ba302eD8d;
+	// TODO: set address
+	address public constant CHINESE_EXCHANGE_4 = 0;
 
 	// Tokens per eth for the various buy-in rates.
 	uint public constant STANDARD_BUYIN = 1000;
@@ -532,9 +534,6 @@ contract AmbrosusSale {
 	uint public constant TIER_3_BUYIN = 1250;
 	uint public constant TIER_4_BUYIN = 1429;
 	uint public constant CHINESE_EXCHANGE_BUYIN = 1087;
-
-	/// The certifier resource.
-	CountryCertifier public certifier;
 
 	//////
 	// State Subset: Allocations
