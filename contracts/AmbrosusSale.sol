@@ -1,8 +1,7 @@
-//! Receipting contract. Just records who sent what.
 //! By Parity Technologies, 2017.
 //! Released under the Apache Licence 2.
 
-pragma solidity ^0.4.16;
+pragma solidity ^0.4.15;
 
 // ECR20 standard token interface
 contract Token {
@@ -31,6 +30,12 @@ contract Owned {
 		NewOwner(owner, _new);
 		owner = _new;
 	}
+}
+
+/// Stripped down certifier interface.
+contract CountryCertifier {
+	function certified(address _who) constant returns (bool);
+	function getCountryCode(address _who) constant returns (bytes2);
 }
 
 // BasicCoin, ECR20 tokens that all belong to the owner for sending around
@@ -138,8 +143,11 @@ contract AmberToken is Token, Owned {
 		when_liquid
 		returns (bool)
 	{
+		// Mitigate the race condition described here:
+		// https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+		require (_value == 0 || accounts[msg.sender].allowanceOf[_spender] == 0);
 		Approval(msg.sender, _spender, _value);
-		accounts[msg.sender].allowanceOf[_spender] += _value;
+		accounts[msg.sender].allowanceOf[_spender] = _value;
 
 		return true;
 	}
@@ -215,8 +223,13 @@ contract AmbrosusSale {
 	modifier is_valid_buyin { require (tx.gasprice <= MAX_BUYIN_GAS_PRICE && msg.value >= MIN_BUYIN_VALUE); _; }
 	// Requires the hard cap to be respected given the desired amount for `buyin`.
 	modifier is_under_cap_with(uint buyin) { require (buyin + saleRevenue <= MAX_REVENUE); _; }
-	// Requires a valid signature to be given.
-	modifier only_signed(address who, uint8 v, bytes32 r, bytes32 s) { require (ecrecover(sha3(SIGNING_PREFIX, who), v, r, s) == SIGNING_AUTHORITY); _; }
+	// Requires sender to be certified and not in US.
+	modifier only_certified_non_us(address who) {
+		require (CERTIFIER.certified(who));
+		var cc = CERTIFIER.getCountryCode(who);
+		require (cc != bytes2("us"));
+		_;
+	}
 
 	/*
 		Sale life cycle:
@@ -293,13 +306,14 @@ contract AmbrosusSale {
 	function specialPurchase()
 		only_before_period
 		is_under_cap_with(msg.value)
+		payable
 		public
 	{
 		var bought = buyinReturn(msg.sender) * msg.value;
 		require (bought > 0);   // be kind and don't punish the idiots.
 
-		require (TREASURY.call.value(msg.value)());
 		tokens.mint(msg.sender, bought);
+		TREASURY.transfer(msg.value);
 		saleRevenue += msg.value;
 		totalSold += bought;
 		SpecialPurchased(msg.sender, msg.value, bought);
@@ -310,21 +324,21 @@ contract AmbrosusSale {
 	/// Preconditions: !paused, sale_ongoing
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
-	function purchase(uint8 v, bytes32 r, bytes32 s)
-		only_signed(msg.sender, v, r, s)
+	function purchase()
+		only_certified_non_us(msg.sender)
 		payable
 		public
 	{
 		processPurchase(msg.sender);
 	}
 
-	/// Let sender make a standard purchase; AMR goes into another account.
+	/// Let sender make a standard purchase; AMB goes into another account.
 	///
 	/// Preconditions: !paused, sale_ongoing
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
-	function purchaseTo(address _recipient, uint8 v, bytes32 r, bytes32 s)
-		only_signed(msg.sender, v, r, s)
+	function purchaseTo(address _recipient)
+		only_certified_non_us(msg.sender)
 		payable
 		public
 	{
@@ -342,8 +356,8 @@ contract AmbrosusSale {
 		is_under_cap_with(msg.value)
 		private
 	{
-		require (TREASURY.call.value(msg.value)());
 		tokens.mint(_recipient, msg.value * STANDARD_BUYIN);
+		TREASURY.transfer(msg.value);
 		saleRevenue += msg.value;
 		totalSold += msg.value * STANDARD_BUYIN;
 		Purchased(_recipient, msg.value);
@@ -482,10 +496,6 @@ contract AmbrosusSale {
 	uint public constant MAX_BUYIN_GAS_PRICE = 25000000000;
 	// The exposed hard cap.
 	uint public constant MAX_REVENUE = 315000 ether;
-	// The signer who signs the message.
-	address public constant SIGNING_AUTHORITY = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
-	// The message to combine with the address and sign.
-	string constant public SIGNING_PREFIX = "\x19Ethereum Signed Message:\n20";
 
 	// The total share of tokens, expressed in PPM, allocated to pre-ICO and ICO.
 	uint constant public SALES_ALLOCATION_PPM = 400000;
@@ -494,14 +504,16 @@ contract AmbrosusSale {
 	// The total share of tokens, expressed in PPM, the admin may later allocate, as liquid tokens.
 	uint constant public LIQUID_ALLOCATION_PPM = 263000;
 
+	/// The certifier resource. TODO: set address
+	CountryCertifier public constant CERTIFIER = CountryCertifier(0);
 	// Who can halt/unhalt/kill?
 	address public constant ADMINISTRATOR = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
 	// Who gets the stash?
 	address public constant TREASURY = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
 	// When does the contribution period begin?
-	uint public constant BEGIN_TIME = now + 5 minutes;//1505304000
+	uint public constant BEGIN_TIME = 1505304000;
 	// How long does the sale last for?
-	uint public constant DURATION = 10 minutes;//30 days;
+	uint public constant DURATION = 30 days;
 	// When does the period end?
 	uint public constant END_TIME = BEGIN_TIME + DURATION;
 
@@ -513,7 +525,8 @@ contract AmbrosusSale {
 	address public constant CHINESE_EXCHANGE_1 = 0x36f548fAB37Fcd39cA8725B8fA214fcd784FE0A3;
 	address public constant CHINESE_EXCHANGE_2 = 0x877Da872D223AB3D073Ab6f9B4bb27540E387C5F;
 	address public constant CHINESE_EXCHANGE_3 = 0xCcC088ec38A4dbc15Ba269A176883F6ba302eD8d;
-	address public constant CHINESE_EXCHANGE_4;
+	// TODO: set address
+	address public constant CHINESE_EXCHANGE_4 = 0;
 
 	// Tokens per eth for the various buy-in rates.
 	uint public constant STANDARD_BUYIN = 1000;
@@ -547,7 +560,7 @@ contract AmbrosusSale {
 
 	// Total amount raised in both presale and sale, in Wei.
 	uint public saleRevenue = 0;
-	// Total amount minted in both presale and sale, in AMR * 10^-18.
+	// Total amount minted in both presale and sale, in AMB * 10^-18.
 	uint public totalSold = 0;
 
 	//////
