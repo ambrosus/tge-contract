@@ -42,9 +42,11 @@ contract CountryCertifier {
 contract AmberToken is Token, Owned {
 	// this is as basic as can be, only the associated balance & allowances
 	struct Account {
+		// Balance is always less than or equal totalSupply since totalSupply is increased straight away of when releasing locked tokens.
 		uint balance;
 		mapping (address => uint) allowanceOf;
 
+		// TokensPerPhase is always less than or equal to totalSupply since anything added to it is UNLOCK_PHASES times lower than added to totalSupply.
 		uint tokensPerPhase;
 		uint nextPhase;
 	}
@@ -55,6 +57,7 @@ contract AmberToken is Token, Owned {
 	function AmberToken() {}
 
 	// Mint a certain number of tokens.
+	// _value has to be bounded not to overflow.
 	function mint(address _who, uint _value)
 		only_owner
 		public
@@ -65,6 +68,7 @@ contract AmberToken is Token, Owned {
 	}
 
 	// Mint a certain number of tokens that are locked up.
+	// _value has to be bounded not to overflow.
 	function mintLocked(address _who, uint _value)
 		only_owner
 		public
@@ -508,7 +512,7 @@ contract AmbrosusSale {
 	CountryCertifier public constant CERTIFIER = CountryCertifier(0);
 	// Who can halt/unhalt/kill?
 	address public constant ADMINISTRATOR = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
-	// Who gets the stash?
+	// Who gets the stash? Should not release funds during minting process.
 	address public constant TREASURY = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
 	// When does the contribution period begin?
 	uint public constant BEGIN_TIME = 1505304000;
@@ -529,6 +533,7 @@ contract AmbrosusSale {
 	address public constant CHINESE_EXCHANGE_4 = 0;
 
 	// Tokens per eth for the various buy-in rates.
+	// 1e8 ETH in existence, means at most 1.5e11 issued.
 	uint public constant STANDARD_BUYIN = 1000;
 	uint public constant TIER_2_BUYIN = 1111;
 	uint public constant TIER_3_BUYIN = 1250;
@@ -559,8 +564,10 @@ contract AmbrosusSale {
 	// saleRevenue <= MAX_REVENUE
 
 	// Total amount raised in both presale and sale, in Wei.
+	// Assuming TREASURY locks funds, so can not exceed total amount of Ether 1e8.
 	uint public saleRevenue = 0;
 	// Total amount minted in both presale and sale, in AMB * 10^-18.
+	// Assuming the TREASURY locks funds, msg.value * STANDARD_BUYIN will be less than 1.5e11.
 	uint public totalSold = 0;
 
 	//////
