@@ -181,20 +181,12 @@ contract AmberToken is Token, Owned {
 		_;
 	}
 
-	// a value should be > 0
-	modifier when_non_zero(uint _value) {
-		require (_value > 0);
-		_;
-	}
-
 	// Tokens must not be locked.
 	modifier when_liquid {
 		require (!locked);
 		_;
 	}
 
-	// the base, tokens denoted in micros
-	uint constant public base = 1000000000000000000;
 	uint constant public DECIMALS = 18;
 
 	// Can the tokens be transferred?
@@ -246,16 +238,12 @@ contract AmbrosusSale {
 
 	// Can only be called by prior to the period (1).
 	modifier only_before_period { require (now < BEGIN_TIME); _; }
-	// Only does something if during the period (2).
-	modifier when_during_period { if (now >= BEGIN_TIME && now < END_TIME && !isPaused) _; }
 	// Can only be called during the period when not paused (2a).
 	modifier only_during_period { require (now >= BEGIN_TIME && now < END_TIME && !isPaused); _; }
 	// Can only be called during the period when paused (2b)
 	modifier only_during_paused_period { require (now >= BEGIN_TIME && now < END_TIME && isPaused); _; }
 	// Can only be called after the period (3).
 	modifier only_after_sale { require (now >= END_TIME || saleRevenue >= MAX_REVENUE); _; }
-	// Can only be called during the period when not paused (2a).
-	modifier only_before_sale_end { require (now < END_TIME && saleRevenue < MAX_REVENUE); _; }
 
 	/*
 		Allocation life cycle:
