@@ -278,6 +278,7 @@ contract AmbrosusSale {
 	event Allocated(address indexed recipient, uint amount, bool liquid);
 
 	/// Note a prepurchase that already happened.
+	/// Up to admin to ensure that value does not overflow.
 	///
 	/// Preconditions: !sale_started
 	/// Writes {Tokens, Sale}
@@ -286,6 +287,7 @@ contract AmbrosusSale {
 		only_before_period
 		public
 	{
+		// Admin ensures bounded value.
 		tokens.mint(_who, _amberSold);
 		saleRevenue += _etherPaid;
 		totalSold += _amberSold;
@@ -307,6 +309,7 @@ contract AmbrosusSale {
 		var bought = buyinReturn(msg.sender) * msg.value;
 		require (bought > 0);   // be kind and don't punish the idiots.
 
+		// Bounded value, see STANDARD_BUYIN.
 		tokens.mint(msg.sender, bought);
 		TREASURY.transfer(msg.value);
 		saleRevenue += msg.value;
@@ -360,6 +363,7 @@ contract AmbrosusSale {
 		is_under_cap_with(msg.value)
 		private
 	{
+		// Bounded value, see STANDARD_BUYIN.
 		tokens.mint(_recipient, msg.value * STANDARD_BUYIN);
 		TREASURY.transfer(msg.value);
 		saleRevenue += msg.value;
@@ -445,6 +449,7 @@ contract AmbrosusSale {
 
 	/// Preallocate a liquid portion of tokens.
 	/// Admin may call this to allocate a share of the liquid tokens.
+	/// Up to admin to ensure that value does not overflow.
 	///
 	/// Preconditions: allocations_initialised
 	/// Postconditions: ?allocations_complete
@@ -454,6 +459,7 @@ contract AmbrosusSale {
 		when_allocatable_liquid(_value)
 		public
 	{
+		// Admin ensures bounded value.
 		tokens.mint(_who, _value);
 		liquidAllocatable -= _value;
 		Allocated(_who, _value, true);
@@ -461,6 +467,7 @@ contract AmbrosusSale {
 
 	/// Preallocate a locked-up portion of tokens.
 	/// Admin may call this to allocate a share of the locked tokens.
+	/// Up to admin to ensure that value does not overflow.
 	///
 	/// Preconditions: allocations_initialised
 	/// Postconditions: ?allocations_complete
@@ -470,6 +477,7 @@ contract AmbrosusSale {
 		when_allocatable_locked(_value)
 		public
 	{
+		// Admin ensures bounded value.
 		tokens.mintLocked(_who, _value);
 		lockedAllocatable -= _value;
 		Allocated(_who, _value, false);
