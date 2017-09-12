@@ -26,10 +26,10 @@ contract Certifier {
 }
 
 contract CountryCertifier is Certifier {
-	event Confirmed(address indexed who, address indexed by, bytes3 indexed countryCode);
+	event Confirmed(address indexed who, address indexed by, bytes2 indexed countryCode);
 	event Revoked(address indexed who, address indexed by);
 
-	function getCountryCode(address _who) constant returns (bytes3);
+	function getCountryCode(address _who) constant returns (bytes2);
 }
 
 /**
@@ -45,11 +45,11 @@ contract MultiCertifier is Owned, Certifier, CountryCertifier {
 
 	struct Certification {
 		address certifier;
-		bytes3 countryCode;
+		bytes2 countryCode;
 		bool active;
 	}
 
-	function certify(address _who, bytes3 _countryCode)
+	function certify(address _who, bytes2 _countryCode)
 		only_delegate
 		only_uncertified(_who)
 	{
@@ -69,7 +69,7 @@ contract MultiCertifier is Owned, Certifier, CountryCertifier {
 
 	function certified(address _who) constant returns (bool) { return certs[_who].active; }
 	function getCertifier(address _who) constant returns (address) { return certs[_who].certifier; }
-	function getCountryCode(address _who) constant returns (bytes3) { return certs[_who].countryCode; }
+	function getCountryCode(address _who) constant returns (bytes2) { return certs[_who].countryCode; }
 	function addDelegate(address _new) only_owner { delegates[_new] = true; }
 	function removeDelegate(address _old) only_owner { delete delegates[_old]; }
 
