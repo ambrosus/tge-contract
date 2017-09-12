@@ -187,7 +187,10 @@ contract AmberToken is Token, Owned {
 		_;
 	}
 
-	uint constant public DECIMALS = 18;
+	/// Usual token descriptors.
+	string constant public name = "Amber Token";
+	uint8 constant public decimals = 18;
+	string constant public symbol = "AMB";
 
 	// Can the tokens be transferred?
 	bool public locked = true;
@@ -317,6 +320,15 @@ contract AmbrosusSale {
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
 	function purchase()
+		only_certified_non_us(msg.sender)
+		payable
+		public
+	{
+		processPurchase(msg.sender);
+	}
+
+	/// Same as purchase.
+	function ()
 		only_certified_non_us(msg.sender)
 		payable
 		public
