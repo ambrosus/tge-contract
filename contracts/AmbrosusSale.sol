@@ -33,9 +33,8 @@ contract Owned {
 }
 
 /// Stripped down certifier interface.
-contract CountryCertifier {
+contract Certifier {
 	function certified(address _who) constant returns (bool);
-	function getCountryCode(address _who) constant returns (bytes2);
 }
 
 // BasicCoin, ECR20 tokens that all belong to the owner for sending around
@@ -209,7 +208,7 @@ contract AmberToken is Token, Owned {
 
 /// Will accept Ether "contributions" and record each both as a log and in a
 /// queryable record.
-contract AmbrosusSale {
+contract AmbrosusSale is Owned {
 	/// Constructor.
 	function AmbrosusSale() {
 		tokens = new AmberToken();
@@ -222,13 +221,8 @@ contract AmbrosusSale {
 	modifier is_valid_buyin { require (tx.gasprice <= MAX_BUYIN_GAS_PRICE && msg.value >= MIN_BUYIN_VALUE); _; }
 	// Requires the hard cap to be respected given the desired amount for `buyin`.
 	modifier is_under_cap_with(uint buyin) { require (buyin + saleRevenue <= MAX_REVENUE); _; }
-	// Requires sender to be certified and not in US.
-	modifier only_certified_non_us(address who) {
-		require (CERTIFIER.certified(who));
-		var cc = CERTIFIER.getCountryCode(who);
-		require (cc != bytes2("us"));
-		_;
-	}
+	// Requires sender to be certified.
+	modifier only_certified(address who) { require (CERTIFIER.certified(who)); _; }
 
 	/*
 		Sale life cycle:
@@ -277,13 +271,13 @@ contract AmbrosusSale {
 	/// Some contribution `amount` received from `recipient`.
 	event Allocated(address indexed recipient, uint amount, bool liquid);
 
-	/// Note a prepurchase that already happened.
-	/// Up to admin to ensure that value does not overflow.
+	/// Note a prepurchase that has already happened.
+	/// Up to owner to ensure that values do not overflow.
 	///
 	/// Preconditions: !sale_started
 	/// Writes {Tokens, Sale}
 	function notePrepurchase(address _who, uint _etherPaid, uint _amberSold)
-		only_admin
+		only_owner
 		only_before_period
 		public
 	{
@@ -323,7 +317,7 @@ contract AmbrosusSale {
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
 	function purchase()
-		only_certified_non_us(msg.sender)
+		only_certified(msg.sender)
 		payable
 		public
 	{
@@ -332,7 +326,7 @@ contract AmbrosusSale {
 
 	/// Same as purchase.
 	function ()
-		only_certified_non_us(msg.sender)
+		only_certified(msg.sender)
 		payable
 		public
 	{
@@ -345,7 +339,7 @@ contract AmbrosusSale {
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
 	function purchaseTo(address _recipient)
-		only_certified_non_us(msg.sender)
+		only_certified(msg.sender)
 		payable
 		public
 	{
@@ -517,7 +511,7 @@ contract AmbrosusSale {
 	uint constant public LIQUID_ALLOCATION_PPM = 263000;
 
 	/// The certifier resource. TODO: set address
-	CountryCertifier public constant CERTIFIER = CountryCertifier(0);
+	Certifier public constant CERTIFIER = Certifier(0);
 	// Who can halt/unhalt/kill?
 	address public constant ADMINISTRATOR = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
 	// Who gets the stash? Should not release funds during minting process.
