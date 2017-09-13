@@ -316,15 +316,6 @@ contract AmbrosusSale is Owned {
 	/// Preconditions: !paused, sale_ongoing
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
-	function purchase()
-		only_certified(msg.sender)
-		payable
-		public
-	{
-		processPurchase(msg.sender);
-	}
-
-	/// Same as purchase.
 	function ()
 		only_certified(msg.sender)
 		payable
