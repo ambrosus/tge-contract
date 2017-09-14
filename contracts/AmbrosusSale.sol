@@ -39,7 +39,6 @@ contract Certifier {
 
 // BasicCoin, ECR20 tokens that all belong to the owner for sending around
 contract AmberToken is Token, Owned {
-	// this is as basic as can be, only the associated balance & allowances
 	struct Account {
 		// Balance is always less than or equal totalSupply since totalSupply is increased straight away of when releasing locked tokens.
 		uint balance;
@@ -191,7 +190,7 @@ contract AmberToken is Token, Owned {
 	uint8 constant public decimals = 18;
 	string constant public symbol = "AMB";
 
-	// Can the tokens be transferred?
+	// Are the tokens non-transferrable?
 	bool public locked = true;
 
 	// Phase information for slow-release tokens.
@@ -294,7 +293,7 @@ contract AmbrosusSale {
 	/// preferential buyin rate may be given.
 	///
 	/// Preconditions: !paused, sale_ongoing
-	/// Postconditions: paused
+	/// Postconditions: !paused, ?!sale_ongoing
 	/// Writes {Tokens, Sale}
 	function specialPurchase()
 		only_before_period
@@ -302,7 +301,7 @@ contract AmbrosusSale {
 		payable
 		public
 	{
-		var bought = buyinReturn(msg.sender) * msg.value;
+		uint256 bought = buyinReturn(msg.sender) * msg.value;
 		require (bought > 0);   // be kind and don't punish the idiots.
 
 		// Bounded value, see STANDARD_BUYIN.
@@ -359,8 +358,6 @@ contract AmbrosusSale {
 	}
 
 	/// Determine purchase price for a given address.
-	/// This function is full of bare constants, mainly because that's how they're defined
-	/// in the spec. Naming them would give little more clarity and just cause additional indirection.
 	function buyinReturn(address _who)
 		constant
 		public
@@ -454,7 +451,7 @@ contract AmbrosusSale {
 
 	/// Preallocate a locked-up portion of tokens.
 	/// Admin may call this to allocate a share of the locked tokens.
-	/// Up to admin to ensure that value does not overflow.
+	/// Up to admin to ensure that value does not overflow and _value is divisible by UNLOCK_PHASES.
 	///
 	/// Preconditions: allocations_initialised
 	/// Postconditions: ?allocations_complete
@@ -482,7 +479,6 @@ contract AmbrosusSale {
 		public
 	{
 		tokens.finalise();
-		suicide(TREASURY);
 	}
 
 	//////
@@ -545,7 +541,7 @@ contract AmbrosusSale {
 	//   (liquidAllocatable + tokens.liquidAllocated) / LIQUID_ALLOCATION_PPM == totalSold / SALES_ALLOCATION_PPM &&
 	//   (lockedAllocatable + tokens.lockedAllocated) / LOCKED_ALLOCATION_PPM == totalSold / SALES_ALLOCATION_PPM
 	//
-	// allocationsInitialised || (now < END_TIME && saleRevenue < MAX_REVENUE)
+	// when_allocations_complete || (now < END_TIME && saleRevenue < MAX_REVENUE)
 
 	// Have post-sale token allocations been initialised?
 	bool public allocationsInitialised = false;
