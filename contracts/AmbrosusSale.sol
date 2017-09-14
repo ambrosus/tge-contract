@@ -208,7 +208,7 @@ contract AmberToken is Token, Owned {
 
 /// Will accept Ether "contributions" and record each both as a log and in a
 /// queryable record.
-contract AmbrosusSale is Owned {
+contract AmbrosusSale {
 	/// Constructor.
 	function AmbrosusSale() {
 		tokens = new AmberToken();
@@ -216,6 +216,8 @@ contract AmbrosusSale is Owned {
 
 	// Can only be called by the administrator.
 	modifier only_admin { require (msg.sender == ADMINISTRATOR); _; }
+	// Can only be called by the prepurchaser.
+	modifier only_prepurchaser { require (msg.sender == PREPURCHASER); _; }
 
 	// The transaction params are valid for buying in.
 	modifier is_valid_buyin { require (tx.gasprice <= MAX_BUYIN_GAS_PRICE && msg.value >= MIN_BUYIN_VALUE); _; }
@@ -277,7 +279,7 @@ contract AmbrosusSale is Owned {
 	/// Preconditions: !sale_started
 	/// Writes {Tokens, Sale}
 	function notePrepurchase(address _who, uint _etherPaid, uint _amberSold)
-		only_owner
+		only_prepurchaser
 		only_before_period
 		public
 	{
@@ -505,6 +507,8 @@ contract AmbrosusSale is Owned {
 	Certifier public constant CERTIFIER = Certifier(0);
 	// Who can halt/unhalt/kill?
 	address public constant ADMINISTRATOR = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
+	// Who can prepurchase?
+	address public constant PREPURCHASER = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
 	// Who gets the stash? Should not release funds during minting process.
 	address public constant TREASURY = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
 	// When does the contribution period begin?
