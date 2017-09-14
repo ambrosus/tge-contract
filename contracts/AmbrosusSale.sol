@@ -33,18 +33,18 @@ contract Owned {
 }
 
 /// Stripped down certifier interface.
-contract CountryCertifier {
+contract Certifier {
 	function certified(address _who) constant returns (bool);
-	function getCountryCode(address _who) constant returns (bytes2);
 }
 
 // BasicCoin, ECR20 tokens that all belong to the owner for sending around
 contract AmberToken is Token, Owned {
-	// this is as basic as can be, only the associated balance & allowances
 	struct Account {
+		// Balance is always less than or equal totalSupply since totalSupply is increased straight away of when releasing locked tokens.
 		uint balance;
 		mapping (address => uint) allowanceOf;
 
+		// TokensPerPhase is always less than or equal to totalSupply since anything added to it is UNLOCK_PHASES times lower than added to totalSupply.
 		uint tokensPerPhase;
 		uint nextPhase;
 	}
@@ -55,6 +55,7 @@ contract AmberToken is Token, Owned {
 	function AmberToken() {}
 
 	// Mint a certain number of tokens.
+	// _value has to be bounded not to overflow.
 	function mint(address _who, uint _value)
 		only_owner
 		public
@@ -65,6 +66,7 @@ contract AmberToken is Token, Owned {
 	}
 
 	// Mint a certain number of tokens that are locked up.
+	// _value has to be bounded not to overflow.
 	function mintLocked(address _who, uint _value)
 		only_owner
 		public
@@ -177,23 +179,18 @@ contract AmberToken is Token, Owned {
 		_;
 	}
 
-	// a value should be > 0
-	modifier when_non_zero(uint _value) {
-		require (_value > 0);
-		_;
-	}
-
 	// Tokens must not be locked.
 	modifier when_liquid {
 		require (!locked);
 		_;
 	}
 
-	// the base, tokens denoted in micros
-	uint constant public base = 1000000000000000000;
-	uint constant public DECIMALS = 18;
+	/// Usual token descriptors.
+	string constant public name = "Amber Token";
+	uint8 constant public decimals = 18;
+	string constant public symbol = "AMB";
 
-	// Can the tokens be transferred?
+	// Are the tokens non-transferrable?
 	bool public locked = true;
 
 	// Phase information for slow-release tokens.
@@ -218,18 +215,15 @@ contract AmbrosusSale {
 
 	// Can only be called by the administrator.
 	modifier only_admin { require (msg.sender == ADMINISTRATOR); _; }
+	// Can only be called by the prepurchaser.
+	modifier only_prepurchaser { require (msg.sender == PREPURCHASER); _; }
 
 	// The transaction params are valid for buying in.
 	modifier is_valid_buyin { require (tx.gasprice <= MAX_BUYIN_GAS_PRICE && msg.value >= MIN_BUYIN_VALUE); _; }
 	// Requires the hard cap to be respected given the desired amount for `buyin`.
 	modifier is_under_cap_with(uint buyin) { require (buyin + saleRevenue <= MAX_REVENUE); _; }
-	// Requires sender to be certified and not in US.
-	modifier only_certified_non_us(address who) {
-		require (CERTIFIER.certified(who));
-		var cc = CERTIFIER.getCountryCode(who);
-		require (cc != bytes2("us"));
-		_;
-	}
+	// Requires sender to be certified.
+	modifier only_certified(address who) { require (CERTIFIER.certified(who)); _; }
 
 	/*
 		Sale life cycle:
@@ -242,16 +236,12 @@ contract AmbrosusSale {
 
 	// Can only be called by prior to the period (1).
 	modifier only_before_period { require (now < BEGIN_TIME); _; }
-	// Only does something if during the period (2).
-	modifier when_during_period { if (now >= BEGIN_TIME && now < END_TIME && !isPaused) _; }
 	// Can only be called during the period when not paused (2a).
 	modifier only_during_period { require (now >= BEGIN_TIME && now < END_TIME && !isPaused); _; }
 	// Can only be called during the period when paused (2b)
 	modifier only_during_paused_period { require (now >= BEGIN_TIME && now < END_TIME && isPaused); _; }
 	// Can only be called after the period (3).
 	modifier only_after_sale { require (now >= END_TIME || saleRevenue >= MAX_REVENUE); _; }
-	// Can only be called during the period when not paused (2a).
-	modifier only_before_sale_end { require (now < END_TIME && saleRevenue < MAX_REVENUE); _; }
 
 	/*
 		Allocation life cycle:
@@ -282,15 +272,17 @@ contract AmbrosusSale {
 	/// Some contribution `amount` received from `recipient`.
 	event Allocated(address indexed recipient, uint amount, bool liquid);
 
-	/// Note a prepurchase that already happened.
+	/// Note a prepurchase that has already happened.
+	/// Up to owner to ensure that values do not overflow.
 	///
 	/// Preconditions: !sale_started
 	/// Writes {Tokens, Sale}
 	function notePrepurchase(address _who, uint _etherPaid, uint _amberSold)
-		only_admin
+		only_prepurchaser
 		only_before_period
 		public
 	{
+		// Admin ensures bounded value.
 		tokens.mint(_who, _amberSold);
 		saleRevenue += _etherPaid;
 		totalSold += _amberSold;
@@ -301,7 +293,7 @@ contract AmbrosusSale {
 	/// preferential buyin rate may be given.
 	///
 	/// Preconditions: !paused, sale_ongoing
-	/// Postconditions: paused
+	/// Postconditions: !paused, ?!sale_ongoing
 	/// Writes {Tokens, Sale}
 	function specialPurchase()
 		only_before_period
@@ -309,9 +301,10 @@ contract AmbrosusSale {
 		payable
 		public
 	{
-		var bought = buyinReturn(msg.sender) * msg.value;
+		uint256 bought = buyinReturn(msg.sender) * msg.value;
 		require (bought > 0);   // be kind and don't punish the idiots.
 
+		// Bounded value, see STANDARD_BUYIN.
 		tokens.mint(msg.sender, bought);
 		TREASURY.transfer(msg.value);
 		saleRevenue += msg.value;
@@ -324,8 +317,8 @@ contract AmbrosusSale {
 	/// Preconditions: !paused, sale_ongoing
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
-	function purchase()
-		only_certified_non_us(msg.sender)
+	function ()
+		only_certified(msg.sender)
 		payable
 		public
 	{
@@ -338,7 +331,7 @@ contract AmbrosusSale {
 	/// Postconditions: ?!sale_ongoing
 	/// Writes {Tokens, Sale}
 	function purchaseTo(address _recipient)
-		only_certified_non_us(msg.sender)
+		only_certified(msg.sender)
 		payable
 		public
 	{
@@ -356,6 +349,7 @@ contract AmbrosusSale {
 		is_under_cap_with(msg.value)
 		private
 	{
+		// Bounded value, see STANDARD_BUYIN.
 		tokens.mint(_recipient, msg.value * STANDARD_BUYIN);
 		TREASURY.transfer(msg.value);
 		saleRevenue += msg.value;
@@ -364,8 +358,6 @@ contract AmbrosusSale {
 	}
 
 	/// Determine purchase price for a given address.
-	/// This function is full of bare constants, mainly because that's how they're defined
-	/// in the spec. Naming them would give little more clarity and just cause additional indirection.
 	function buyinReturn(address _who)
 		constant
 		public
@@ -441,6 +433,7 @@ contract AmbrosusSale {
 
 	/// Preallocate a liquid portion of tokens.
 	/// Admin may call this to allocate a share of the liquid tokens.
+	/// Up to admin to ensure that value does not overflow.
 	///
 	/// Preconditions: allocations_initialised
 	/// Postconditions: ?allocations_complete
@@ -450,6 +443,7 @@ contract AmbrosusSale {
 		when_allocatable_liquid(_value)
 		public
 	{
+		// Admin ensures bounded value.
 		tokens.mint(_who, _value);
 		liquidAllocatable -= _value;
 		Allocated(_who, _value, true);
@@ -457,6 +451,7 @@ contract AmbrosusSale {
 
 	/// Preallocate a locked-up portion of tokens.
 	/// Admin may call this to allocate a share of the locked tokens.
+	/// Up to admin to ensure that value does not overflow and _value is divisible by UNLOCK_PHASES.
 	///
 	/// Preconditions: allocations_initialised
 	/// Postconditions: ?allocations_complete
@@ -466,6 +461,7 @@ contract AmbrosusSale {
 		when_allocatable_locked(_value)
 		public
 	{
+		// Admin ensures bounded value.
 		tokens.mintLocked(_who, _value);
 		lockedAllocatable -= _value;
 		Allocated(_who, _value, false);
@@ -483,7 +479,6 @@ contract AmbrosusSale {
 		public
 	{
 		tokens.finalise();
-		suicide(TREASURY);
 	}
 
 	//////
@@ -505,10 +500,12 @@ contract AmbrosusSale {
 	uint constant public LIQUID_ALLOCATION_PPM = 263000;
 
 	/// The certifier resource. TODO: set address
-	CountryCertifier public constant CERTIFIER = CountryCertifier(0);
+	Certifier public constant CERTIFIER = Certifier(0);
 	// Who can halt/unhalt/kill?
 	address public constant ADMINISTRATOR = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
-	// Who gets the stash?
+	// Who can prepurchase?
+	address public constant PREPURCHASER = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
+	// Who gets the stash? Should not release funds during minting process.
 	address public constant TREASURY = 0x006E778F0fde07105C7adDc24b74b99bb4A89566;
 	// When does the contribution period begin?
 	uint public constant BEGIN_TIME = 1505304000;
@@ -529,6 +526,7 @@ contract AmbrosusSale {
 	address public constant CHINESE_EXCHANGE_4 = 0;
 
 	// Tokens per eth for the various buy-in rates.
+	// 1e8 ETH in existence, means at most 1.5e11 issued.
 	uint public constant STANDARD_BUYIN = 1000;
 	uint public constant TIER_2_BUYIN = 1111;
 	uint public constant TIER_3_BUYIN = 1250;
@@ -543,7 +541,7 @@ contract AmbrosusSale {
 	//   (liquidAllocatable + tokens.liquidAllocated) / LIQUID_ALLOCATION_PPM == totalSold / SALES_ALLOCATION_PPM &&
 	//   (lockedAllocatable + tokens.lockedAllocated) / LOCKED_ALLOCATION_PPM == totalSold / SALES_ALLOCATION_PPM
 	//
-	// allocationsInitialised || (now < END_TIME && saleRevenue < MAX_REVENUE)
+	// when_allocations_complete || (now < END_TIME && saleRevenue < MAX_REVENUE)
 
 	// Have post-sale token allocations been initialised?
 	bool public allocationsInitialised = false;
@@ -559,8 +557,10 @@ contract AmbrosusSale {
 	// saleRevenue <= MAX_REVENUE
 
 	// Total amount raised in both presale and sale, in Wei.
+	// Assuming TREASURY locks funds, so can not exceed total amount of Ether 1e8.
 	uint public saleRevenue = 0;
 	// Total amount minted in both presale and sale, in AMB * 10^-18.
+	// Assuming the TREASURY locks funds, msg.value * STANDARD_BUYIN will be less than 1.5e11.
 	uint public totalSold = 0;
 
 	//////
